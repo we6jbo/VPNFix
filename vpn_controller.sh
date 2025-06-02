@@ -1,6 +1,15 @@
 #!/bin/bash
-VERSION="1.0.1"
-SCRIPT_PATH="/root/vpn_controller.sh"
+#
+# vpn_controller.sh - NordVPN controller with auto-update and version checking
+# Author: Jeremiah O'Neal
+# License: MIT License (Recommended)
+#
+# Description:
+# This script resets network configurations, connects to NordVPN, and supports
+# self-updating by comparing local and remote script versions hosted on GitHub.
+
+VERSION="1.0.2"
+SCRIPT_PATH="$(realpath "$0")"
 REMOTE_URL="https://raw.githubusercontent.com/we6jbo/VPNFix/main/vpn_controller.sh"
 
 # Function: Reset Network
