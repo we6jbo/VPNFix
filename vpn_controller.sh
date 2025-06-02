@@ -7,8 +7,9 @@
 # Description:
 # This script resets network configurations, connects to NordVPN, and supports
 # self-updating by comparing local and remote script versions hosted on GitHub.
+# Now includes an interactive troubleshooting assistant!
 
-VERSION="1.0.2"
+VERSION="1.0.3"
 SCRIPT_PATH="$(realpath "$0")"
 REMOTE_URL="https://raw.githubusercontent.com/we6jbo/VPNFix/main/vpn_controller.sh"
 
@@ -28,11 +29,47 @@ reset_network() {
 connect_vpn() {
     echo "🔗 Connecting to NordVPN..."
     nordvpn login || echo "Already logged in or login error."
-    nordvpn connect || echo "VPN connection failed."
+    nordvpn connect || {
+        echo "❌ VPN connection failed."
+        troubleshoot_prompt
+    }
     echo "🔍 VPN Status:"
     curl -s ifconfig.me && echo ""
     ip route
     nordvpn status
+}
+
+# Function: Troubleshooting Prompt
+troubleshoot_prompt() {
+    echo "💡 It looks like the VPN connection failed."
+    echo "Here are some things you could try:"
+    echo "1️⃣ Restart NetworkManager service"
+    echo "2️⃣ Flush firewall rules (iptables and nftables)"
+    echo "3️⃣ Unmask NordVPN service"
+    echo "4️⃣ Reset the VPN configuration"
+    read -p "Would you like me to try these steps for you? (yes/no): " choice
+    case "$choice" in
+        yes|y|Y)
+            echo "🔧 Attempting automated troubleshooting..."
+            troubleshoot_steps
+            ;;
+        *)
+            echo "👍 Okay! You can try running './vpn_controller.sh reset' manually if you'd like."
+            ;;
+    esac
+}
+
+# Function: Troubleshoot Steps
+troubleshoot_steps() {
+    echo "🔄 Restarting NetworkManager..."
+    systemctl restart NetworkManager || echo "⚠️ Could not restart NetworkManager."
+    echo "🚫 Flushing firewall rules..."
+    iptables -F
+    nft flush ruleset
+    echo "🔓 Unmasking and restarting NordVPN service..."
+    systemctl unmask nordvpn || echo "NordVPN service was not masked or unmasking failed."
+    systemctl restart nordvpn || echo "⚠️ Could not restart NordVPN service."
+    echo "✅ Troubleshooting steps applied. Please try connecting again."
 }
 
 # Function: Fetch Remote Version
