@@ -1,15 +1,16 @@
 #!/bin/bash
 #
-# vpn_controller.sh - NordVPN controller with auto-update and version checking
+# vpn_controller.sh - NordVPN controller with auto-update, version checking, and interactive troubleshooting assistant
 # Author: Jeremiah O'Neal
 # License: MIT License (Recommended)
 #
 # Description:
-# This script resets network configurations, connects to NordVPN, and supports
-# self-updating by comparing local and remote script versions hosted on GitHub.
-# Now includes an interactive troubleshooting assistant!
+# This script resets network configurations, connects to NordVPN, supports
+# self-updating by comparing local and remote script versions hosted on GitHub,
+# and includes an interactive troubleshooting assistant for connectivity issues.
+# It now also includes a brute-force recovery mode.
 
-VERSION="1.0.3"
+VERSION="1.0.5"
 SCRIPT_PATH="$(realpath "$0")"
 REMOTE_URL="https://raw.githubusercontent.com/we6jbo/VPNFix/main/vpn_controller.sh"
 
@@ -29,14 +30,36 @@ reset_network() {
 connect_vpn() {
     echo "🔗 Connecting to NordVPN..."
     nordvpn login || echo "Already logged in or login error."
-    nordvpn connect || {
+    if ! nordvpn connect; then
         echo "❌ VPN connection failed."
         troubleshoot_prompt
-    }
+    fi
     echo "🔍 VPN Status:"
     curl -s ifconfig.me && echo ""
     ip route
     nordvpn status
+}
+
+# Function: Brute-Force VPN Recovery
+bruteforce_recovery() {
+    echo "🛠️ Brute-Force Recovery Mode activated. Attempting to fix the VPN connection for 30 seconds..."
+    end_time=$((SECONDS + 30))
+    while [ $SECONDS -lt $end_time ]; do
+        echo "🔄 Attempting troubleshooting steps..."
+        troubleshoot_steps
+        echo "🔗 Trying to connect to NordVPN..."
+        if nordvpn connect; then
+            echo "✅ VPN connection restored!"
+            echo "🔍 VPN Status:"
+            curl -s ifconfig.me && echo ""
+            ip route
+            nordvpn status
+            exit 0
+        fi
+        echo "⏳ Waiting 5 seconds before next attempt..."
+        sleep 5
+    done
+    echo "❌ Brute-Force Recovery Mode ended. VPN connection could not be established."
 }
 
 # Function: Troubleshooting Prompt
@@ -45,8 +68,10 @@ troubleshoot_prompt() {
     echo "Here are some things you could try:"
     echo "1️⃣ Restart NetworkManager service"
     echo "2️⃣ Flush firewall rules (iptables and nftables)"
-    echo "3️⃣ Unmask NordVPN service"
-    echo "4️⃣ Reset the VPN configuration"
+    echo "3️⃣ Unmask and restart NordVPN service"
+    echo "4️⃣ Re-login to NordVPN"
+    echo "5️⃣ View the last 10 lines of NordVPN logs"
+    echo "6️⃣ Test internet connectivity with ping"
     read -p "Would you like me to try these steps for you? (yes/no): " choice
     case "$choice" in
         yes|y|Y)
@@ -69,6 +94,13 @@ troubleshoot_steps() {
     echo "🔓 Unmasking and restarting NordVPN service..."
     systemctl unmask nordvpn || echo "NordVPN service was not masked or unmasking failed."
     systemctl restart nordvpn || echo "⚠️ Could not restart NordVPN service."
+    echo "🔐 Re-logging into NordVPN..."
+    nordvpn logout
+    nordvpn login || echo "⚠️ NordVPN login failed or was already logged in."
+    echo "📝 Displaying last 10 lines of NordVPN logs..."
+    journalctl -u nordvpn --no-pager | tail -n 10 || echo "⚠️ Could not display NordVPN logs."
+    echo "🌐 Checking internet connectivity..."
+    ping -c 3 google.com || echo "⚠️ No internet connectivity detected."
     echo "✅ Troubleshooting steps applied. Please try connecting again."
 }
 
@@ -119,6 +151,10 @@ case "$1" in
         check_update "$@"
         connect_vpn
         ;;
+    bruteforce)
+        check_update "$@"
+        bruteforce_recovery
+        ;;
     update)
         update_script
         ;;
@@ -126,7 +162,7 @@ case "$1" in
         check_update
         ;;
     *)
-        echo "Usage: $0 {reset|connect|update|check-update}"
+        echo "Usage: $0 {reset|connect|bruteforce|update|check-update}"
         ;;
 esac
 
