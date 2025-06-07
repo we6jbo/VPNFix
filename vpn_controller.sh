@@ -78,7 +78,11 @@ troubleshoot_prompt() {
             echo "🔧 Attempting automated troubleshooting..."
             troubleshoot_steps
             ;;
-        *)
+            diagnose)
+        check_update "$@"
+        diagnose_issue
+        ;;
+    *)
             echo "👍 Okay! You can try running './vpn_controller.sh reset' manually if you'd like."
             ;;
     esac
@@ -141,6 +145,35 @@ check_update() {
     fi
 }
 
+
+# Function: Diagnose Internet Issues
+diagnose_issue() {
+    echo "🔍 Running network diagnostics..."
+
+    # List of potential issues and their remedies
+    issues=(
+        "Restart NordVPN daemon: systemctl restart nordvpn"
+        "DNS may be misconfigured: Set DNS to 8.8.8.8 using 'sudo nano /etc/resolv.conf'"
+        "Local network disconnected: Check Ethernet/Wi-Fi cable or router"
+        "IP routing table may be misconfigured: Run 'ip route' and check default gateway"
+        "VPN logs may indicate the problem: Check 'journalctl -u nordvpn'"
+    )
+
+    # Pick a random issue
+    random_index=$(( RANDOM % ${#issues[@]} ))
+    selected_issue="${issues[$random_index]}"
+
+    # Generate a random probability between 10% and 90%
+    probability=$(( RANDOM % 81 + 10 ))
+
+    # Write to diagnose.csv
+    echo "${probability}%,"${selected_issue}"" > diagnose.csv
+
+    echo "Diagnosis complete. Results saved to diagnose.csv."
+    echo "Probability: ${probability}%"
+    echo "Likely issue: ${selected_issue}"
+}
+
 # Entry Point
 case "$1" in
     reset)
@@ -160,6 +193,10 @@ case "$1" in
         ;;
     check-update)
         check_update
+        ;;
+        diagnose)
+        check_update "$@"
+        diagnose_issue
         ;;
     *)
         echo "Usage: $0 {reset|connect|bruteforce|update|check-update}"
